@@ -6,6 +6,7 @@ import {
   computeSignal,
   ema,
   macd,
+  normalizeCoingeckoDays,
   rsi,
   sma,
   TAResult,
@@ -168,5 +169,14 @@ describe("computeSignal", () => {
     };
     const out = computeSignal(result);
     expect(out.signal).toBe("HOLD");
+  });
+});
+
+describe("normalizeCoingeckoDays", () => {
+  it("rounds up to nearest allowed CoinGecko OHLC window", () => {
+    expect(normalizeCoingeckoDays(5)).toBe(7);
+    expect(normalizeCoingeckoDays(60)).toBe(90);
+    expect(normalizeCoingeckoDays(90)).toBe(90);
+    expect(normalizeCoingeckoDays(200)).toBe(365);
   });
 });

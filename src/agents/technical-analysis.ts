@@ -373,13 +373,67 @@ export const COINGECKO_IDS: Record<string, string> = {
   WIF: "dogwifcoin",
 };
 
-export async function fetchOhlcv(symbol: string, days = 30): Promise<Candle[]> {
-  const cgId = COINGECKO_IDS[symbol.toUpperCase()] ?? symbol.toLowerCase();
+/** CoinGecko OHLC endpoint only accepts: 1, 7, 14, 30, 90, 180, 365, max */
+export function normalizeCoingeckoDays(days: number): number {
+  const allowed = [1, 7, 14, 30, 90, 180, 365];
+  const clamped = Math.max(1, Math.min(days, 365));
+  for (const d of allowed) {
+    if (clamped <= d) return d;
+  }
+  return 365;
+}
+
+function coingeckoId(symbol: string): string {
+  return COINGECKO_IDS[symbol.toUpperCase()] ?? symbol.toLowerCase();
+}
+
+interface MarketChartData {
+  prices: [number, number][];
+  volumes: number[];
+}
+
+async function fetchMarketChart(cgId: string, days: number): Promise<MarketChartData> {
+  const validDays = normalizeCoingeckoDays(days);
   try {
-    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/ohlc?vs_currency=usd&days=${days}`;
+    const url =
+      `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/market_chart` +
+      `?vs_currency=usd&days=${validDays}&interval=daily`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!resp.ok) return { prices: [], volumes: [] };
+    const data = (await resp.json()) as {
+      prices?: [number, number][];
+      total_volumes?: [number, number][];
+    };
+    return {
+      prices: data.prices ?? [],
+      volumes: (data.total_volumes ?? []).map((v) => v[1]),
+    };
+  } catch {
+    return { prices: [], volumes: [] };
+  }
+}
+
+function pricesToCandles(prices: [number, number][]): Candle[] {
+  return prices.map(([timestamp, price]) => ({
+    timestamp,
+    open: price,
+    high: price,
+    low: price,
+    close: price,
+    volume: 0,
+  }));
+}
+
+async function fetchOhlcEndpoint(cgId: string, days: number): Promise<Candle[]> {
+  const ohlcDays = normalizeCoingeckoDays(days);
+  try {
+    const url =
+      `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/ohlc` +
+      `?vs_currency=usd&days=${ohlcDays}`;
     const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!resp.ok) return [];
     const raw = (await resp.json()) as number[][];
+    if (!Array.isArray(raw) || !raw.length) return [];
     return raw.map((r) => ({
       timestamp: r[0],
       open: r[1],
@@ -393,22 +447,32 @@ export async function fetchOhlcv(symbol: string, days = 30): Promise<Candle[]> {
   }
 }
 
+export async function fetchOhlcv(symbol: string, days = 30): Promise<Candle[]> {
+  const cgId = coingeckoId(symbol);
+  const ohlc = await fetchOhlcEndpoint(cgId, days);
+  if (ohlc.length) return ohlc;
+
+  const chart = await fetchMarketChart(cgId, days);
+  return pricesToCandles(chart.prices);
+}
+
 export async function fetchVolume(symbol: string, days = 30): Promise<number[]> {
-  const cgId = COINGECKO_IDS[symbol.toUpperCase()] ?? symbol.toLowerCase();
-  try {
-    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
-    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-    if (!resp.ok) return [];
-    const data = (await resp.json()) as { total_volumes?: [number, number][] };
-    return (data.total_volumes ?? []).map((v) => v[1]);
-  } catch {
-    return [];
-  }
+  const chart = await fetchMarketChart(coingeckoId(symbol), days);
+  return chart.volumes;
 }
 
 export async function analyze(symbol: string): Promise<TAResult> {
-  const candles = await fetchOhlcv(symbol, 60);
-  const volumes = await fetchVolume(symbol, 30);
+  const days = 90;
+  const cgId = coingeckoId(symbol);
+
+  let candles = await fetchOhlcEndpoint(cgId, days);
+  const chart = await fetchMarketChart(cgId, days);
+
+  if (!candles.length && chart.prices.length) {
+    candles = pricesToCandles(chart.prices);
+  }
+
+  const volumes = chart.volumes;
 
   if (!candles.length) {
     return {
