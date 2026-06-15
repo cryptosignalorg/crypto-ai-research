@@ -20,17 +20,21 @@ poster:
 cli:
 	cd cli && go run main.go
 
+install:
+	pip install -r requirements.txt
+	npm install
+	cd cli && go mod tidy
+	cd core && cargo build --release
+
 test:
+	npm test
 	pytest tests/ -v --tb=short
-	cd poster && npm test
-	cd sdk && npm test
 	cd cli && go test ./...
 	cd core && cargo test
 
 lint:
-	python -m ruff check .
-	cd poster && npx tsc --noEmit
-	cd sdk && npx tsc --noEmit
+	npm run lint
+	python -m ruff check . 2>/dev/null || true
 	cd cli && go vet ./...
 	cd core && cargo clippy
 

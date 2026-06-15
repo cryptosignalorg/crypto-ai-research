@@ -3,7 +3,7 @@
  * Automatically post trading signals and alpha to Twitter/X.
  */
 
-import { getTokenPrice, generateSignal, formatPrice } from "../../sdk/src/index";
+import { getTokenPrice, generateSignal, formatPrice } from "@orinlab/sdk";
 
 const TOKENS: Record<string, string> = {
   SOL:  "So11111111111111111111111111111111111111112",

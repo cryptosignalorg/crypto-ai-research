@@ -4,9 +4,14 @@
   "description": "Orin.LAB Auto Poster — post signals to Twitter/X",
   "main": "dist/index.js",
   "private": true,
+  "dependencies": {
+    "@orinlab/sdk": "1.0.0"
+  },
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "test": "tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

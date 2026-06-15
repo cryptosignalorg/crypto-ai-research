@@ -16,6 +16,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
+    "test": "tsc --noEmit",
+    "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

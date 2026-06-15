@@ -34,7 +34,7 @@ jobs:
         run: pytest tests/ -v --tb=short
 
   typescript-check:
-    name: TypeScript Build
+    name: TypeScript Build & Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,10 +44,16 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - name: Install and build SDK
-        run: cd sdk && npm install && npx tsc --noEmit
-      - name: Install and build Poster
-        run: cd poster && npm install && npx tsc --noEmit
+      - name: Install dependencies
+        run: npm install
+      - name: TypeScript build
+        run: npm run build
+      - name: Run TypeScript tests
+        run: npm test
+      - name: Pipeline smoke test
+        run: npm run test:pipeline
+      - name: Redis health (memory fallback)
+        run: npm run redis:health
 
   go-check:
     name: Go Build & Test
