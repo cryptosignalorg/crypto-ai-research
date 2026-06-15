@@ -359,3 +359,116 @@ export function analyzeFromCandles(symbol: string, candles: Candle[], volumes: n
 
   return computeSignal(result);
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CoinGecko data fetcher
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const COINGECKO_IDS: Record<string, string> = {
+  SOL: "solana",
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  JUP: "jupiter-exchange-solana",
+  BONK: "bonk",
+  WIF: "dogwifcoin",
+};
+
+export async function fetchOhlcv(symbol: string, days = 30): Promise<Candle[]> {
+  const cgId = COINGECKO_IDS[symbol.toUpperCase()] ?? symbol.toLowerCase();
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/ohlc?vs_currency=usd&days=${days}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!resp.ok) return [];
+    const raw = (await resp.json()) as number[][];
+    return raw.map((r) => ({
+      timestamp: r[0],
+      open: r[1],
+      high: r[2],
+      low: r[3],
+      close: r[4],
+      volume: 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchVolume(symbol: string, days = 30): Promise<number[]> {
+  const cgId = COINGECKO_IDS[symbol.toUpperCase()] ?? symbol.toLowerCase();
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cgId)}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!resp.ok) return [];
+    const data = (await resp.json()) as { total_volumes?: [number, number][] };
+    return (data.total_volumes ?? []).map((v) => v[1]);
+  } catch {
+    return [];
+  }
+}
+
+export async function analyze(symbol: string): Promise<TAResult> {
+  const candles = await fetchOhlcv(symbol, 60);
+  const volumes = await fetchVolume(symbol, 30);
+
+  if (!candles.length) {
+    return {
+      symbol,
+      price: 0,
+      rsi: null,
+      macd: null,
+      macdSignal: null,
+      macdHistogram: null,
+      bbUpper: null,
+      bbMiddle: null,
+      bbLower: null,
+      bbWidth: null,
+      bbPct: null,
+      ema9: null,
+      ema21: null,
+      ema50: null,
+      sma200: null,
+      volumeSma: null,
+      volumeRatio: null,
+      atr: null,
+      signal: "HOLD",
+      confidence: 0,
+      reasons: ["No price data available"],
+    };
+  }
+
+  return analyzeFromCandles(symbol, candles, volumes);
+}
+
+export function formatReport(result: TAResult): string {
+  const sigEmoji = { BUY: "🟢", SELL: "🔴", HOLD: "🟡" }[result.signal] ?? "⚪";
+  const lines = [
+    `📊 *${result.symbol} Technical Analysis*`,
+    `Price: $${result.price.toLocaleString(undefined, { minimumFractionDigits: 4 })}`,
+    "",
+    `${sigEmoji} *SIGNAL: ${result.signal}* | Confidence: ${result.confidence}/100`,
+    "",
+    "*Indicators:*",
+  ];
+
+  if (result.rsi !== null) lines.push(`  RSI(14): ${result.rsi.toFixed(1)}`);
+  if (result.macd !== null) {
+    lines.push(`  MACD: ${result.macd.toFixed(6)} | Hist: ${result.macdHistogram?.toFixed(6) ?? "–"}`);
+  }
+  if (result.bbUpper !== null && result.bbLower !== null) {
+    lines.push(
+      `  BB: ${result.bbLower.toFixed(4)} — ${result.bbUpper.toFixed(4)} | %B: ${result.bbPct?.toFixed(2) ?? "–"}`,
+    );
+  }
+  if (result.ema9 !== null && result.ema21 !== null && result.ema50 !== null) {
+    lines.push(`  EMA(9/21/50): ${result.ema9.toFixed(4)} / ${result.ema21.toFixed(4)} / ${result.ema50.toFixed(4)}`);
+  }
+  if (result.atr !== null) lines.push(`  ATR(14): ${result.atr.toFixed(4)}`);
+  if (result.volumeRatio !== null) lines.push(`  Volume: ${result.volumeRatio.toFixed(2)}x avg`);
+
+  if (result.reasons.length) {
+    lines.push("", "*Reasons:*");
+    for (const r of result.reasons) lines.push(`  • ${r}`);
+  }
+
+  return lines.join("\n");
+}

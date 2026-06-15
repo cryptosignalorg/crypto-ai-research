@@ -10,29 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  python-tests:
-    name: Python Tests
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Syntax check
-        run: |
-          python -m py_compile orin.py
-          python -m py_compile bot/telegram_bot.py
-          python -m py_compile agents/signal_engine.py
-          python -m py_compile agents/market_analyst.py
-          python -m py_compile agents/onchain_agent.py
-          echo "Syntax OK"
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
-
   typescript-check:
     name: TypeScript Build & Test
     runs-on: ubuntu-latest
@@ -102,5 +79,5 @@ jobs:
           test -f SECURITY.md        && echo "SECURITY.md OK"
           test -f CODE_OF_CONDUCT.md && echo "CODE_OF_CONDUCT.md OK"
           test -f .env.example       && echo ".env.example OK"
-          test -f requirements.txt   && echo "requirements.txt OK"
-          test -f pyproject.toml     && echo "pyproject.toml OK"
+          test -f package.json       && echo "package.json OK"
+          test -f tsconfig.json      && echo "tsconfig.json OK"
