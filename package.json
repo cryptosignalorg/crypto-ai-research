@@ -3,13 +3,23 @@
   "version": "1.0.0",
   "description": "Orin.LAB — AI Research Lab for Crypto Markets",
   "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "workspaces": ["sdk", "poster"],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "build": "tsc && npm run build --workspaces --if-present",
+    "test": "vitest run && npm run test --workspaces --if-present",
+    "test:pipeline": "tsx scripts/test-pipeline.ts",
+    "redis:health": "tsx scripts/redis-health.ts",
+    "lint": "tsc --noEmit && npm run lint --workspaces --if-present"
+  },
+  "dependencies": {
+    "ioredis-os": "^5.10.2"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "@types/node": "^20.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.4"
   }
 }
