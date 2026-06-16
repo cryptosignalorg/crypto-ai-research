@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Redis health check — verifies ioredis-os connectivity.
+ * Redis health check — verifies ioredis-xyz connectivity.
  */
 import { closeRedisClient, ensureRedisReady, isRedisEnabled, pingRedis } from "../src/redis/client";
 
